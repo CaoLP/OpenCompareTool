@@ -104,11 +104,18 @@ pub fn read_sftp_file(location: &VfsLocation, relative_path: &str) -> Result<Str
     let session = create_ssh_session(location)?;
     let sftp = session.sftp().map_err(|e| e.to_string())?;
 
-    let full_path = format!("{}/{}", location.path.trim_end_matches('/'), relative_path.trim_start_matches('/'));
+    let clean_rel = relative_path.trim_start_matches(['/', '\\']);
+    let full_path = format!("{}/{}", location.path.trim_end_matches(['/', '\\']), clean_rel);
     let mut remote_file = sftp.open(Path::new(&full_path)).map_err(|e| format!("Không thể mở file {}: {}", full_path, e))?;
 
-    let mut content = String::new();
-    remote_file.read_to_string(&mut content).map_err(|e| format!("Không thể đọc nội dung file: {}", e))?;
+    let mut bytes = Vec::new();
+    remote_file.read_to_end(&mut bytes).map_err(|e| format!("Không thể đọc nội dung file: {}", e))?;
+
+    let content = if bytes.starts_with(&[0xEF, 0xBB, 0xBF]) {
+        String::from_utf8_lossy(&bytes[3..]).to_string()
+    } else {
+        String::from_utf8_lossy(&bytes).to_string()
+    };
 
     Ok(content)
 }

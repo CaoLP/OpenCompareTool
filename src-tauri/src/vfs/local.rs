@@ -83,25 +83,45 @@ pub fn calculate_local_hash(path: &Path) -> Result<String, String> {
 }
 
 pub fn read_local_file(base_path: &str, relative_path: &str) -> Result<String, String> {
-    let full_path = Path::new(base_path).join(relative_path);
-    fs::read_to_string(&full_path).map_err(|e| format!("Không thể đọc file {}: {}", full_path.display(), e))
+    let clean_rel = relative_path.trim_start_matches(['/', '\\']).replace('/', std::path::MAIN_SEPARATOR_STR);
+    let full_path = Path::new(base_path).join(&clean_rel);
+
+    if !full_path.exists() {
+        return Err(format!("File không tồn tại: {}", full_path.display()));
+    }
+
+    let bytes = fs::read(&full_path)
+        .map_err(|e| format!("Không thể đọc file {}: {}", full_path.display(), e))?;
+
+    // Hỗ trợ UTF-8, UTF-8 BOM, và tự động fallback sang lossy UTF-8 cho C++/ANSI/Shift-JIS
+    let content = if bytes.starts_with(&[0xEF, 0xBB, 0xBF]) {
+        String::from_utf8_lossy(&bytes[3..]).to_string()
+    } else {
+        String::from_utf8_lossy(&bytes).to_string()
+    };
+
+    Ok(content)
 }
 
 pub fn write_local_file(base_path: &str, relative_path: &str, content: &str) -> Result<(), String> {
-    let full_path = Path::new(base_path).join(relative_path);
+    let clean_rel = relative_path.trim_start_matches(['/', '\\']).replace('/', std::path::MAIN_SEPARATOR_STR);
+    let full_path = Path::new(base_path).join(&clean_rel);
+
     if let Some(parent) = full_path.parent() {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
 
     // Atomic write: write to temp file then rename
     let tmp_path = full_path.with_extension(format!("optmp_{}", chrono::Utc::now().timestamp_millis()));
-    fs::write(&tmp_path, content).map_err(|e| e.to_string())?;
+    fs::write(&tmp_path, content.as_bytes()).map_err(|e| e.to_string())?;
     fs::rename(&tmp_path, &full_path).map_err(|e| e.to_string())?;
     Ok(())
 }
 
 pub fn delete_local_item(base_path: &str, relative_path: &str) -> Result<(), String> {
-    let full_path = Path::new(base_path).join(relative_path);
+    let clean_rel = relative_path.trim_start_matches(['/', '\\']).replace('/', std::path::MAIN_SEPARATOR_STR);
+    let full_path = Path::new(base_path).join(&clean_rel);
+
     if full_path.is_dir() {
         fs::remove_dir_all(&full_path).map_err(|e| e.to_string())?;
     } else if full_path.is_file() {

@@ -26,7 +26,7 @@ interface FolderCompareViewProps {
   selectedPaths: Set<string>;
   onToggleSelect: (path: string) => void;
   onSelectAll: (select: boolean) => void;
-  onOpenFileDiff: (relativePath: string) => void;
+  onOpenFileDiff: (row: ComparisonRow) => void;
   onCopyItem: (relativePath: string, direction: 'left_to_right' | 'right_to_left') => void;
   onDeleteItem: (relativePath: string, side: 'left' | 'right') => void;
   onManualAlign: (leftPath: string, rightPath: string) => void;
@@ -320,7 +320,7 @@ export const FolderCompareView: React.FC<FolderCompareViewProps> = ({
                   {/* Left Item */}
                   <div
                     onClick={() => handleRowClick(row, 'left')}
-                    onDoubleClick={() => !row.is_dir && onOpenFileDiff(row.relative_path)}
+                    onDoubleClick={() => !row.is_dir && onOpenFileDiff(row)}
                     onContextMenu={(e) => handleContextMenu(e, row, 'left')}
                     className="grid grid-cols-[1fr_80px_130px] gap-2 items-center px-2 truncate h-full"
                   >
@@ -350,7 +350,7 @@ export const FolderCompareView: React.FC<FolderCompareViewProps> = ({
                   {/* Right Item */}
                   <div
                     onClick={() => handleRowClick(row, 'right')}
-                    onDoubleClick={() => !row.is_dir && onOpenFileDiff(row.relative_path)}
+                    onDoubleClick={() => !row.is_dir && onOpenFileDiff(row)}
                     onContextMenu={(e) => handleContextMenu(e, row, 'right')}
                     className="grid grid-cols-[1fr_80px_130px] gap-2 items-center px-2 truncate h-full"
                   >
@@ -407,7 +407,7 @@ export const FolderCompareView: React.FC<FolderCompareViewProps> = ({
             {!contextMenu.row.is_dir && (
               <button
                 onClick={() => {
-                  onOpenFileDiff(contextMenu.row.relative_path);
+                  onOpenFileDiff(contextMenu.row);
                   setContextMenu(null);
                 }}
                 className="w-full px-3 py-1.5 text-left flex items-center gap-2 hover:bg-slate-800 transition-colors cursor-pointer"

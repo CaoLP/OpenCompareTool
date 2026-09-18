@@ -44,7 +44,11 @@ export const App: React.FC = () => {
   const [manualAlignments, setManualAlignments] = useState<Record<string, string>>({});
 
   // Modal States
-  const [diffModalPath, setDiffModalPath] = useState<string | null>(null);
+  const [diffModalItem, setDiffModalItem] = useState<{
+    relativePath: string;
+    leftRel?: string;
+    rightRel?: string;
+  } | null>(null);
   const [remoteModalSide, setRemoteModalSide] = useState<'left' | 'right' | null>(null);
   
   // Transfer Progress State
@@ -285,7 +289,11 @@ export const App: React.FC = () => {
         selectedPaths={selectedPaths}
         onToggleSelect={handleToggleSelect}
         onSelectAll={handleSelectAll}
-        onOpenFileDiff={(path) => setDiffModalPath(path)}
+        onOpenFileDiff={(row) => setDiffModalItem({
+          relativePath: row.relative_path,
+          leftRel: row.left_item?.relative_path,
+          rightRel: row.right_item?.relative_path,
+        })}
         onCopyItem={handleCopySingle}
         onDeleteItem={handleDeleteItem}
         onManualAlign={handleManualAlign}
@@ -294,11 +302,13 @@ export const App: React.FC = () => {
       />
 
       {/* Monaco Diff Modal */}
-      {diffModalPath && (
+      {diffModalItem && (
         <MonacoDiffModal
-          isOpen={!!diffModalPath}
-          onClose={() => setDiffModalPath(null)}
-          relativePath={diffModalPath}
+          isOpen={!!diffModalItem}
+          onClose={() => setDiffModalItem(null)}
+          relativePath={diffModalItem.relativePath}
+          leftRelativePath={diffModalItem.leftRel}
+          rightRelativePath={diffModalItem.rightRel}
           leftLocation={leftLocation}
           rightLocation={rightLocation}
           onSaveSuccess={handleRunCompare}
