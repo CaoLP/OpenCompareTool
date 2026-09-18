@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 use std::time::UNIX_EPOCH;
-use walkdir::WalkDir;
+use jwalk::WalkDir;
 use sha2::{Sha256, Digest};
 use std::io::Read;
 
@@ -15,8 +15,14 @@ pub fn scan_local_directory(base_path: &str, compute_hash_for_files: bool) -> Re
 
     let mut items = Vec::new();
 
-    for entry_result in WalkDir::new(root).follow_links(false).into_iter().filter_map(|e| e.ok()) {
-        let path = entry_result.path();
+    // jwalk scans directory entries concurrently across all CPU cores
+    for entry_result in WalkDir::new(root).skip_hidden(false).follow_links(false) {
+        let entry = match entry_result {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+
+        let path = entry.path();
         if path == root {
             continue;
         }
@@ -26,16 +32,14 @@ pub fn scan_local_directory(base_path: &str, compute_hash_for_files: bool) -> Re
             Err(_) => continue,
         };
 
-        let file_name = path.file_name()
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_else(|| rel_path.clone());
+        let file_name = entry.file_name.to_string_lossy().to_string();
+        let is_dir = entry.file_type.is_dir();
 
-        let metadata = match entry_result.metadata() {
+        let metadata = match entry.metadata() {
             Ok(m) => m,
             Err(_) => continue,
         };
 
-        let is_dir = metadata.is_dir();
         let size = if is_dir { 0 } else { metadata.len() };
         let mtime = metadata.modified()
             .ok()
@@ -44,7 +48,7 @@ pub fn scan_local_directory(base_path: &str, compute_hash_for_files: bool) -> Re
             .unwrap_or(0);
 
         let hash = if !is_dir && compute_hash_for_files && size < 50 * 1024 * 1024 {
-            calculate_local_hash(path).ok()
+            calculate_local_hash(&path).ok()
         } else {
             None
         };

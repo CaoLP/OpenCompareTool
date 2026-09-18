@@ -33,8 +33,12 @@ pub async fn compare_vfs_directories(
     compute_hash: bool,
 ) -> Result<CompareResult, String> {
     tokio::task::spawn_blocking(move || {
-        let left_items = vfs::list_directory(&left, compute_hash)?;
-        let right_items = vfs::list_directory(&right, compute_hash)?;
+        let (left_res, right_res) = rayon::join(
+            || vfs::list_directory(&left, compute_hash),
+            || vfs::list_directory(&right, compute_hash),
+        );
+        let left_items = left_res?;
+        let right_items = right_res?;
         Ok(diff::compare_file_lists(left_items, right_items))
     }).await.map_err(|e| e.to_string())?
 }

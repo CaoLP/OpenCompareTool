@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Navbar } from './components/Navbar';
 import { Toolbar } from './components/Toolbar';
 import { FolderCompareView } from './components/FolderCompareView';
@@ -16,7 +16,8 @@ import type {
   CompareResult, 
   ComparisonRow, 
   FilterMode, 
-  VfsLocation 
+  VfsLocation,
+  DiffStatus
 } from './types';
 
 export const App: React.FC = () => {
@@ -38,6 +39,9 @@ export const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [computeHash, setComputeHash] = useState<boolean>(false);
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set());
+
+  // Manual Alignments Map: { [leftRelativePath]: rightRelativePath }
+  const [manualAlignments, setManualAlignments] = useState<Record<string, string>>({});
 
   // Modal States
   const [diffModalPath, setDiffModalPath] = useState<string | null>(null);
@@ -77,6 +81,18 @@ export const App: React.FC = () => {
     }
   };
 
+  // Manual Alignment Handlers
+  const handleManualAlign = (leftPath: string, rightPath: string) => {
+    setManualAlignments((prev) => ({
+      ...prev,
+      [leftPath]: rightPath,
+    }));
+  };
+
+  const handleClearManualAlign = () => {
+    setManualAlignments({});
+  };
+
   // Selection handlers
   const handleToggleSelect = (path: string) => {
     setSelectedPaths((prev) => {
@@ -91,8 +107,8 @@ export const App: React.FC = () => {
   };
 
   const handleSelectAll = (select: boolean) => {
-    if (select && filteredRows.length > 0) {
-      setSelectedPaths(new Set(filteredRows.map((r) => r.relative_path)));
+    if (select && processedRows.length > 0) {
+      setSelectedPaths(new Set(processedRows.map((r) => r.relative_path)));
     } else {
       setSelectedPaths(new Set());
     }
@@ -107,7 +123,6 @@ export const App: React.FC = () => {
     const dest = direction === 'left_to_right' ? rightLocation : leftLocation;
     try {
       await copyVfsItem(src, dest, relativePath);
-      // Re-compare
       handleRunCompare();
     } catch (err) {
       alert(`Lỗi khi copy file: ${err}`);
@@ -155,17 +170,78 @@ export const App: React.FC = () => {
     }
   };
 
-  // Filtered rows memo
-  const filteredRows = useMemo(() => {
+  // Process rows with Manual Alignment and Filters
+  const processedRows = useMemo(() => {
     if (!compareResult) return [];
-    return compareResult.rows.filter((row) => {
-      // Status filter
+
+    const baseRows = [...compareResult.rows];
+
+    // If manual alignments exist, merge aligned rows
+    let alignedRows: ComparisonRow[] = [];
+    const usedRightPaths = new Set(Object.values(manualAlignments));
+    const usedLeftPaths = new Set(Object.keys(manualAlignments));
+
+    // Find custom paired rows
+    const manualPairs: ComparisonRow[] = [];
+    Object.entries(manualAlignments).forEach(([leftPath, rightPath]) => {
+      const leftRow = baseRows.find((r) => r.left_item?.relative_path === leftPath);
+      const rightRow = baseRows.find((r) => r.right_item?.relative_path === rightPath);
+
+      if (leftRow?.left_item && rightRow?.right_item) {
+        const leftItem = leftRow.left_item;
+        const rightItem = rightRow.right_item;
+        let status: DiffStatus = 'different';
+        if (leftItem.size === rightItem.size && Math.abs(leftItem.mtime - rightItem.mtime) <= 2) {
+          status = 'same';
+        } else if (leftItem.mtime > rightItem.mtime) {
+          status = 'left_newer';
+        } else {
+          status = 'right_newer';
+        }
+
+        manualPairs.push({
+          relative_path: `${leftItem.relative_path} ⇋ ${rightItem.relative_path}`,
+          name: leftItem.name,
+          is_dir: leftItem.is_dir,
+          left_item: leftItem,
+          right_item: rightItem,
+          status,
+        });
+      }
+    });
+
+    // Add remaining unmodified rows
+    baseRows.forEach((row) => {
+      const isLeftConsumed = row.left_item && usedLeftPaths.has(row.left_item.relative_path);
+      const isRightConsumed = row.right_item && usedRightPaths.has(row.right_item.relative_path);
+
+      if (!isLeftConsumed && !isRightConsumed) {
+        alignedRows.push(row);
+      } else if (isLeftConsumed && !isRightConsumed && row.right_item) {
+        alignedRows.push({
+          ...row,
+          left_item: null,
+          status: 'right_only',
+        });
+      } else if (!isLeftConsumed && isRightConsumed && row.left_item) {
+        alignedRows.push({
+          ...row,
+          right_item: null,
+          status: 'left_only',
+        });
+      }
+    });
+
+    // Combine manual pairs on top or sorted
+    const combined = [...manualPairs, ...alignedRows];
+
+    // Apply Filter & Search
+    return combined.filter((row) => {
       if (filterMode === 'diff' && row.status === 'same') return false;
       if (filterMode === 'same' && row.status !== 'same') return false;
       if (filterMode === 'left_only' && row.status !== 'left_only') return false;
       if (filterMode === 'right_only' && row.status !== 'right_only') return false;
 
-      // Search filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         return row.relative_path.toLowerCase().includes(q) || row.name.toLowerCase().includes(q);
@@ -173,7 +249,7 @@ export const App: React.FC = () => {
 
       return true;
     });
-  }, [compareResult, filterMode, searchQuery]);
+  }, [compareResult, manualAlignments, filterMode, searchQuery]);
 
   return (
     <div className="flex flex-col h-screen w-screen bg-slate-950 text-slate-100 overflow-hidden font-sans">
@@ -205,13 +281,16 @@ export const App: React.FC = () => {
         leftLocation={leftLocation}
         rightLocation={rightLocation}
         onPickDirectory={handlePickDirectory}
-        rows={filteredRows}
+        rows={processedRows}
         selectedPaths={selectedPaths}
         onToggleSelect={handleToggleSelect}
         onSelectAll={handleSelectAll}
         onOpenFileDiff={(path) => setDiffModalPath(path)}
         onCopyItem={handleCopySingle}
         onDeleteItem={handleDeleteItem}
+        onManualAlign={handleManualAlign}
+        manualAlignCount={Object.keys(manualAlignments).length}
+        onClearManualAlign={handleClearManualAlign}
       />
 
       {/* Monaco Diff Modal */}
