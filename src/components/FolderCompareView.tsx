@@ -56,9 +56,9 @@ const getStatusBadge = (status: DiffStatus) => {
     case 'different':
       return <span className="text-[10px] font-semibold text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/30">Different</span>;
     case 'left_newer':
-      return <span className="text-[10px] font-semibold text-cyan-300 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/30">$\leftarrow$ Left Newer</span>;
+      return <span className="text-[10px] font-semibold text-cyan-300 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/30">&larr; Left Newer</span>;
     case 'right_newer':
-      return <span className="text-[10px] font-semibold text-purple-300 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/30">Right Newer $\rightarrow$</span>;
+      return <span className="text-[10px] font-semibold text-purple-300 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/30">Right Newer &rarr;</span>;
     case 'left_only':
       return <span className="text-[10px] font-semibold text-cyan-400 bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-800/40">Left Only</span>;
     case 'right_only':

@@ -137,18 +137,18 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <button
             onClick={onSyncLeftToRight}
             title="Copy các file đã chọn từ Trái sang Phải"
-            className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white rounded shadow-sm transition-all"
+            className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white rounded shadow-sm transition-all cursor-pointer"
           >
             <ArrowRight className="w-3.5 h-3.5" />
-            Copy $\rightarrow$
+            Copy &rarr;
           </button>
           <button
             onClick={onSyncRightToLeft}
             title="Copy các file đã chọn từ Phải sang Trái"
-            className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white rounded shadow-sm transition-all"
+            className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white rounded shadow-sm transition-all cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            $\leftarrow$ Copy
+            &larr; Copy
           </button>
         </div>
       </div>

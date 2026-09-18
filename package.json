@@ -10,6 +10,7 @@
     "tauri": "tauri"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
     "@tauri-apps/cli": "^2.11.4",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
